@@ -36,11 +36,14 @@ df <- import("https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_202
 # lm function
 ?lm
 lm(formula = total_amount ~ trip_distance + passenger_count , data = df) 
+lm(formula = total_amount ~ 1 , data = df) ## con esto se obtiene un intercepto simplemente y este es lo mimso que el promedio de la dependiente
+mean(df$total_amount)
 lm(formula = total_amount ~ trip_distance + passenger_count - 1, data = df) 
 
 # Linear regression
 ols = lm(total_amount ~ trip_distance + passenger_count , data = df) 
-ols %>% summary() 
+
+ols %>% summary() ## con esto se puede ver una tablita como la de stata
 summary(ols)$r.squared # R^2
 summary(ols)$adj.r.squared # R^2 ajustado
 
@@ -56,6 +59,8 @@ hist(ols$residuals)
 # get predict values
 ols %>% predict()
 df$predict_ols = predict(object = ols , newdata=df )
+df=df %>% mutate(residuo = total_amount - predict_ols)
+
 
 #=================#
 # 2. Subset datos #
@@ -70,10 +75,14 @@ ggplot(data=df_s) + geom_point(aes(x=trip_distance,y=total_amount)) + theme_bw()
 
 # new estimations
 ols2 = lm(total_amount ~ trip_distance + passenger_count , data = df_s) 
+ols2 = lm(total_amount ~ trip_distance + passenger_count , data = df, subset=trip_distance<150) 
+
 
 # get "tidy" regression coefficients (broom library)
 tidy(ols2, conf.int = TRUE)
 glance(ols2)
+ols %>% tidy()
+
 
 #===========================#
 # 3. Robust standard errors #
@@ -81,12 +90,14 @@ glance(ols2)
 
 # Eicker-Huber-White robust standard errors (commonly referred to as “HC2”)
 ols_robust = lm_robust(total_amount ~ trip_distance + passenger_count , data = df_s)
-ols_robust %>% tidy(conf.int = TRUE)
+ols_robust %>% tidy(conf.int = F)
+ols2 %>% tidy(conf.int = F)
+
 
 # replicar resultados de Stata
 ols_stata = lm_robust(total_amount ~ trip_distance + passenger_count , data = df_s , se_type = "stata")
 ols_stata %>% tidy(conf.int = TRUE)
-
+ols_robust %>% tidy(conf.int = F)
 # Print the HAC VCOV
 ols_hac = coeftest(ols, vcov = NeweyWest) # library lmtest
 ols_hac %>% tidy(conf.int = TRUE) 
@@ -144,7 +155,8 @@ probit_marg %>% tidy(conf.int = TRUE)
 #=================#
 
 # joint models (modelsummary)
-msummary(list(ols, ols2 , ols_robust , ols_stata , ols_hac))
+msummary(list(ols, ols2 , ols_robust , ols_stata , ols_hac), output = "m_sum.docx")
+
 
 # export table
 stargazer(ols, ols2,
@@ -153,6 +165,7 @@ stargazer(ols, ols2,
           df = FALSE,
           digits = 3, 
           out = paste0('output/ols.text'))
+
 
 # coefplot
 mods = list('Logit' = logit_marg , 'Probit' = probit_marg , "OLS" = ols_lineal)
